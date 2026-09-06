@@ -1,5 +1,6 @@
 import binascii
 import contextlib
+import csv
 import datetime
 import decimal
 import importlib
@@ -18,6 +19,7 @@ from dataclasses import dataclass, field
 from types import TracebackType
 from typing import (
     Any,
+    TextIO,
     TypeVar,
     Union,
     cast,
@@ -863,6 +865,33 @@ class Database:
             ATTACH DATABASE '{pathlib.Path(filepath).resolve()!s}' AS {quote_identifier(alias)};
         """.strip()
         self.execute(attach_sql)
+
+    def export_csv(
+        self,
+        sql: str,
+        file: TextIO,
+        params: Sequence | dict[str, Any] | None = None,
+        *,
+        headers: bool = True,
+    ) -> None:
+        """
+        Execute a SELECT query and write its results to a writable text stream.
+
+        Uses the same Excel CSV dialect as the CLI. Rows are streamed in query
+        order, with NULL represented by an empty field. The stream is left open.
+
+        :param sql: SELECT query to execute
+        :param file: Writable text stream, opened with ``newline=""``
+        :param params: Positional or named query parameters
+        :param headers: Include column names, even when no rows are returned
+        """
+        with contextlib.closing(self.execute(sql, params)) as cursor:
+            if cursor.description is None:
+                raise ValueError("export_csv() requires a query that returns rows")
+            writer = csv.writer(file, dialect="excel")
+            if headers:
+                writer.writerow(column[0] for column in cursor.description)
+            writer.writerows(cursor)
 
     def query(
         self, sql: str, params: Sequence | dict[str, Any] | None = None

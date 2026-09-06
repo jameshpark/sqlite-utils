@@ -260,6 +260,31 @@ A suffix that would collide with another column in the query is skipped - ``sele
 .. note::
     In the CLI: :ref:`sqlite-utils query <cli_query>`
 
+.. _python_api_export_csv:
+
+Exporting query results to CSV
+-----------------------------
+
+Use ``db.export_csv(sql, file, params=None, headers=True)`` to write a SELECT result to a writable text stream. For example, to create a UTF-8 CSV file from a database on disk:
+
+.. code-block:: python
+
+    from sqlite_utils import Database
+
+    db = Database("dogs.db")
+    with open("dogs.csv", "w", encoding="utf-8", newline="") as file:
+        db.export_csv(
+            "select name, age from dogs where age >= :age order by name",
+            file,
+            params={"age": 2},
+        )
+
+Open the file with ``newline=""`` so the CSV writer handles line endings, including newlines inside fields. The method streams rows without loading the full result into memory and leaves the file open. It returns ``None``.
+
+Column headings follow the SELECT column order and preserve aliases, including duplicate names. An empty result still writes headings. Pass ``headers=False`` to omit them; an empty result then writes nothing. Parameters accept a sequence for ``?`` placeholders or a dictionary for named placeholders, as with ``db.query()``.
+
+The output uses the same Excel CSV dialect as the CLI, quoting commas, quotes and embedded newlines. Numbers become text and SQL NULL becomes an empty field. NULL and an empty string cannot be distinguished in the CSV output. This method is intended for SELECT queries and executes SQL using ``db.execute()``; it does not enforce read-only SQL.
+
 .. _python_api_execute:
 
 db.execute(sql, params)
