@@ -1,8 +1,56 @@
+import csv
+import io
 import types
 
 import pytest
 
 from sqlite_utils.utils import sqlite3
+
+
+@pytest.mark.parametrize("headers", [True, False])
+@pytest.mark.parametrize("empty", [True, False])
+@pytest.mark.parametrize("named", [True, False])
+def test_export_csv(fresh_db, headers, empty, named):
+    fresh_db["items"].insert_all(
+        [
+            {"id": 1, "text": "ordinary", "number": 3.5, "missing": None},
+            {"id": 2, "text": 'comma, quote"\n雪 café', "number": -7, "missing": None},
+            {"id": 3, "text": "excluded", "number": 0, "missing": None},
+        ]
+    )
+    limit = 0 if empty else 2
+    stream = io.StringIO(newline="")
+    result = fresh_db.export_csv(
+        "select text as label, id, number, missing from items where id <= {} order by id".format(
+            ":limit" if named else "?"
+        ),
+        stream,
+        {"limit": limit} if named else [limit],
+        headers=headers,
+    )
+    assert result is None
+    assert not stream.closed
+    stream.seek(0)
+    expected = [["label", "id", "number", "missing"]] if headers else []
+    if not empty:
+        expected += [
+            ["ordinary", "1", "3.5", ""],
+            ['comma, quote"\n雪 café', "2", "-7.0", ""],
+        ]
+    assert list(csv.reader(stream)) == expected
+
+
+def test_export_csv_defaults_and_duplicate_headings(fresh_db):
+    stream = io.StringIO(newline="")
+    fresh_db.export_csv("select 1 as id, 2 as id, NULL as missing", stream)
+    assert stream.getvalue() == "id,id,missing\r\n1,2,\r\n"
+
+
+def test_export_csv_sql_error(fresh_db):
+    stream = io.StringIO()
+    with pytest.raises(sqlite3.OperationalError):
+        fresh_db.export_csv("select * from missing_table", stream)
+    assert stream.getvalue() == ""
 
 
 def test_query(fresh_db):
