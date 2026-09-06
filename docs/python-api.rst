@@ -263,7 +263,7 @@ A suffix that would collide with another column in the query is skipped - ``sele
 .. _python_api_export_csv:
 
 Exporting query results to CSV
------------------------------
+------------------------------
 
 Use ``db.export_csv(sql, file, params=None, headers=True)`` to write a SELECT result to a writable text stream. For example, to create a UTF-8 CSV file from a database on disk:
 
